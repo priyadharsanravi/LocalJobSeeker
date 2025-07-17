@@ -13,6 +13,8 @@ import {
   type InsertSavedJob,
   type JobWithCompany 
 } from "@shared/schema";
+import { db } from "./db";
+import { eq, like, and, desc, ilike, or } from "drizzle-orm";
 
 export interface IStorage {
   // Companies
@@ -364,4 +366,168 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+export class DatabaseStorage implements IStorage {
+  async getUser(id: number): Promise<any | undefined> {
+    // Placeholder for user functionality
+    return undefined;
+  }
+
+  async getUserByUsername(username: string): Promise<any | undefined> {
+    // Placeholder for user functionality
+    return undefined;
+  }
+
+  async createUser(insertUser: any): Promise<any> {
+    // Placeholder for user functionality
+    return {} as any;
+  }
+
+  // Companies
+  async createCompany(company: InsertCompany): Promise<Company> {
+    const [newCompany] = await db.insert(companies).values(company).returning();
+    return newCompany;
+  }
+
+  async getCompanies(): Promise<Company[]> {
+    return await db.select().from(companies);
+  }
+
+  async getCompany(id: number): Promise<Company | undefined> {
+    const [company] = await db.select().from(companies).where(eq(companies.id, id));
+    return company || undefined;
+  }
+
+  // Jobs
+  async createJob(job: InsertJob): Promise<Job> {
+    const [newJob] = await db.insert(jobs).values(job).returning();
+    return newJob;
+  }
+
+  async getJobs(filters?: { category?: string; location?: string; search?: string }): Promise<JobWithCompany[]> {
+    const query = db
+      .select()
+      .from(jobs)
+      .leftJoin(companies, eq(jobs.companyId, companies.id))
+      .where(eq(jobs.isActive, true));
+
+    let conditions = [eq(jobs.isActive, true)];
+
+    if (filters?.category) {
+      conditions.push(eq(jobs.category, filters.category));
+    }
+
+    if (filters?.location) {
+      conditions.push(ilike(jobs.location, `%${filters.location}%`));
+    }
+
+    if (filters?.search) {
+      const searchTerm = `%${filters.search}%`;
+      conditions.push(
+        or(
+          ilike(jobs.title, searchTerm),
+          ilike(jobs.description, searchTerm)
+        )
+      );
+    }
+
+    const result = await db
+      .select()
+      .from(jobs)
+      .leftJoin(companies, eq(jobs.companyId, companies.id))
+      .where(and(...conditions))
+      .orderBy(desc(jobs.postedAt));
+
+    return result.map(row => ({
+      ...row.jobs,
+      company: row.companies!,
+      likesCount: Math.floor(Math.random() * 200) + 20,
+      commentsCount: Math.floor(Math.random() * 50) + 5
+    }));
+  }
+
+  async getJob(id: number): Promise<JobWithCompany | undefined> {
+    const [result] = await db
+      .select()
+      .from(jobs)
+      .leftJoin(companies, eq(jobs.companyId, companies.id))
+      .where(eq(jobs.id, id));
+
+    if (!result || !result.companies) return undefined;
+
+    return {
+      ...result.jobs,
+      company: result.companies,
+      likesCount: Math.floor(Math.random() * 200) + 20,
+      commentsCount: Math.floor(Math.random() * 50) + 5
+    };
+  }
+
+  async updateJob(id: number, jobUpdate: Partial<InsertJob>): Promise<Job | undefined> {
+    const [updatedJob] = await db
+      .update(jobs)
+      .set(jobUpdate)
+      .where(eq(jobs.id, id))
+      .returning();
+    return updatedJob || undefined;
+  }
+
+  async deleteJob(id: number): Promise<boolean> {
+    const result = await db.delete(jobs).where(eq(jobs.id, id));
+    return result.rowCount > 0;
+  }
+
+  // Applications
+  async createApplication(application: InsertApplication): Promise<Application> {
+    const [newApplication] = await db.insert(applications).values(application).returning();
+    return newApplication;
+  }
+
+  async getApplicationsForJob(jobId: number): Promise<Application[]> {
+    return await db.select().from(applications).where(eq(applications.jobId, jobId));
+  }
+
+  async getApplications(): Promise<Application[]> {
+    return await db.select().from(applications);
+  }
+
+  // Saved Jobs
+  async saveJob(savedJob: InsertSavedJob): Promise<SavedJob> {
+    const [newSavedJob] = await db.insert(savedJobs).values(savedJob).returning();
+    return newSavedJob;
+  }
+
+  async unsaveJob(jobId: number, userId: string): Promise<boolean> {
+    const result = await db
+      .delete(savedJobs)
+      .where(and(eq(savedJobs.jobId, jobId), eq(savedJobs.userId, userId)));
+    return result.rowCount > 0;
+  }
+
+  async getSavedJobs(userId: string): Promise<JobWithCompany[]> {
+    const result = await db
+      .select()
+      .from(savedJobs)
+      .leftJoin(jobs, eq(savedJobs.jobId, jobs.id))
+      .leftJoin(companies, eq(jobs.companyId, companies.id))
+      .where(and(eq(savedJobs.userId, userId), eq(jobs.isActive, true)))
+      .orderBy(desc(savedJobs.savedAt));
+
+    return result.map(row => ({
+      ...row.jobs!,
+      company: row.companies!,
+      isSaved: true,
+      likesCount: Math.floor(Math.random() * 200) + 20,
+      commentsCount: Math.floor(Math.random() * 50) + 5
+    }));
+  }
+
+  async isJobSaved(jobId: number, userId: string): Promise<boolean> {
+    const [saved] = await db
+      .select()
+      .from(savedJobs)
+      .where(and(eq(savedJobs.jobId, jobId), eq(savedJobs.userId, userId)));
+    return !!saved;
+  }
+}
+
+export const storage = new DatabaseStorage();

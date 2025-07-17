@@ -1,4 +1,5 @@
 import { pgTable, text, serial, integer, boolean, timestamp } from "drizzle-orm/pg-core";
+import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -69,6 +70,34 @@ export type InsertCompany = z.infer<typeof insertCompanySchema>;
 export type InsertJob = z.infer<typeof insertJobSchema>;
 export type InsertApplication = z.infer<typeof insertApplicationSchema>;
 export type InsertSavedJob = z.infer<typeof insertSavedJobSchema>;
+
+// Relations
+export const companiesRelations = relations(companies, ({ many }) => ({
+  jobs: many(jobs),
+}));
+
+export const jobsRelations = relations(jobs, ({ one, many }) => ({
+  company: one(companies, {
+    fields: [jobs.companyId],
+    references: [companies.id],
+  }),
+  applications: many(applications),
+  savedJobs: many(savedJobs),
+}));
+
+export const applicationsRelations = relations(applications, ({ one }) => ({
+  job: one(jobs, {
+    fields: [applications.jobId],
+    references: [jobs.id],
+  }),
+}));
+
+export const savedJobsRelations = relations(savedJobs, ({ one }) => ({
+  job: one(jobs, {
+    fields: [savedJobs.jobId],
+    references: [jobs.id],
+  }),
+}));
 
 // Extended types for API responses
 export type JobWithCompany = Job & {

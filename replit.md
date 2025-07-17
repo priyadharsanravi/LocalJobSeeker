@@ -24,6 +24,7 @@ Preferred communication style: Simple, everyday language.
 - **Database**: PostgreSQL with Drizzle ORM for type-safe database operations
 - **Database Provider**: Neon serverless PostgreSQL for scalable cloud hosting
 - **Session Management**: PostgreSQL-based session storage with connect-pg-simple
+- **Data Storage**: DatabaseStorage class replacing in-memory storage for persistent data
 
 ### Mobile-First Design
 - **Responsive Layout**: Mobile-optimized interface with bottom navigation
@@ -37,6 +38,7 @@ Preferred communication style: Simple, everyday language.
 - **Jobs**: Core job listings with full details (title, description, company reference, location, salary, type, category, skills, posting date, active status)
 - **Applications**: Track job applications (job reference, applicant details, cover letter, status, timestamp)
 - **Saved Jobs**: User favorites system (job reference, user ID, timestamp)
+- **Relations**: Fully modeled with Drizzle relations for companies-jobs, jobs-applications, and jobs-savedJobs
 
 ### API Endpoints
 - **Jobs Management**: CRUD operations for job listings with filtering capabilities
